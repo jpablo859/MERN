@@ -1,8 +1,11 @@
 import Modal from 'react-modal';
 import moment from 'moment';
 import DateTimePicker from 'react-datetime-picker'
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Swal from 'sweetalert2';
+import { useDispatch, useSelector } from 'react-redux';
+import { uiCloseModal } from '../../actions/ui';
+import { eventClearActiveEvent, eventStartDeleted, eventStartNew, eventStartUpdated } from '../../actions/eventesCalendar';
 
 const customStyles = {
     content : {
@@ -20,20 +23,34 @@ Modal.setAppElement('#root');
 const now = moment().minutes(0).seconds(0).add(1,'hours');
 const after = now.clone().add(1,'hours');
 
+const initEvent = {
+    id: new Date().getTime(),
+    title: '',
+    notes: '',
+    start: now.toDate(),
+    end: after.toDate(),
+    state: 'Atendida',
+    client: 'Juan Pablo Saldarriaga'
+}
+
 export const CalendarModal = () => {
+
+    const dispatch = useDispatch();
+
+    const {modalOpen} = useSelector(state => state.ui)
+    const {activeEvent} = useSelector(state => state.calendar)
 
     const [dateStart, setDateStart] = useState(now.toDate());
     const [dateEnd, setDateEnd] = useState(after.toDate());
     const [titleValid, setTitleValid] = useState(true);
 
-    const [formValues, setFormValues] = useState({
-        title: 'Evento',
-        notes: '',
-        start: now.toDate(),
-        end: after.toDate()
-    })
+    const [formValues, setFormValues] = useState(initEvent)
 
     const { title, notes, start, end } = formValues;
+
+    useEffect(() => {
+        activeEvent ? setFormValues(activeEvent) : setFormValues(initEvent)
+    }, [activeEvent])
 
     const handleInputChange = ({target}) => {
         setFormValues({
@@ -43,7 +60,9 @@ export const CalendarModal = () => {
     }
 
     const closeModal = () => {
-        
+        dispatch(uiCloseModal());
+        dispatch(eventClearActiveEvent());
+        setFormValues(initEvent);
     }
 
     const handleStartDateChange = e => {
@@ -80,14 +99,26 @@ export const CalendarModal = () => {
             return setTitleValid(false);
         }
 
+        if(activeEvent) {
+            dispatch(eventStartUpdated(formValues));
+        } else {
+            dispatch(eventStartNew(formValues))
+        }
+
+
         setTitleValid(true);
+        closeModal();
+    }
+
+    const deleteEvent = () => {
+        dispatch(eventStartDeleted());
         closeModal();
     }
 
     return (
         <div>
             <Modal
-                isOpen={true}
+                isOpen={modalOpen}
                 onRequestClose={closeModal}
                 closeTimeoutMS={200}
                 className="modal"
@@ -95,7 +126,10 @@ export const CalendarModal = () => {
                 style={customStyles}
             >
     
-                <h1> Nuevo evento </h1>
+                <h1> 
+                    {
+                        activeEvent ? 'Editar Evento' : 'Nuevo evento'
+                    } </h1>
                 <hr />
                 <form 
                     className="container"
@@ -149,13 +183,42 @@ export const CalendarModal = () => {
                         <small id="emailHelp" className="form-text text-muted">Información adicional</small>
                     </div>
 
-                    <button
-                        type="submit"
-                        className="btn btn-outline-primary btn-block"
-                    >
-                        <i className="far fa-save"></i>
-                        <span> Guardar</span>
-                    </button>
+                    <div className="row">
+                        {activeEvent ? 
+                        <>
+                            <div className="col-6">
+                                <button
+                                    type="submit"
+                                    className="btn btn-outline-success w-100"
+                                >
+                                    <i className="fa fa-sync"></i>
+                                    <span> Actualizar</span>
+                                </button>
+                            </div>
+                            <div className="col-6">
+                                    <button
+                                        className="btn btn-outline-danger w-100"
+                                        onClick={deleteEvent}
+                                    >
+                                        <i className="fa fa-trash"></i>
+                                        <span> Eliminar</span>
+                                    </button>
+                            </div>
+                        </>
+                        :
+                            <div className="col-12">
+                                <button
+                                    type="submit"
+                                    className="btn btn-outline-primary w-100"
+                                >
+                                    <i className="fa fa-save"></i>
+                                    <span> Guardar</span>
+                                </button>
+                            </div>
+                        }
+                    </div>
+
+
 
                 </form>
             </Modal>
